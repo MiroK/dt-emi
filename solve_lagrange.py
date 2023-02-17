@@ -45,6 +45,8 @@ def get_system_cg(u_prev, boundaries, dt, data, bdry_tags):
 if __name__ == '__main__':
     from utils import setup_geometry, setup_mms, update_time
 
+    pdegree = 1
+    # ------------
     T_final = 0.5
     dt = 1E-2
     alpha = 1E-3
@@ -56,7 +58,6 @@ if __name__ == '__main__':
             'neumann': ()}
 
     print_freq = 0.1*T_final/dt
-    
     # -----------
     n = 64
     boundaries = setup_geometry(n)
@@ -64,7 +65,7 @@ if __name__ == '__main__':
     update_time(mms_data, time=0.)
     
     mesh = boundaries.mesh()
-    V = df.FunctionSpace(mesh, 'CG', 1)
+    V = df.FunctionSpace(mesh, 'CG', pdegre)
     u_prev = df.interpolate(mms_data['solution'], V)
     
     a, L, bcs = get_system(u_prev, boundaries, dt, data=mms_data, bdry_tags=tags)
@@ -91,4 +92,4 @@ if __name__ == '__main__':
         step % print_freq == 0 and print(f'\tt = {t:.2f} |b| = {b.norm("linf"):.4E}, |x| = {x.norm("linf"):.4E}')
     time = mms_data['solution'].time
     error = df.errornorm(mms_data['solution'], u_prev, 'H1')
-    print(f'time = {time:.2f} h = {mesh.hmin():.2f} dt = {dt:.2f} => |u(T)-uh(T)|_1 = {error:.4E}')
+    print(f'time = {time:.2E} h = {mesh.hmin():.2E} dt = {dt:.2E} => |u(T)-uh(T)|_1 = {error:.4E}')

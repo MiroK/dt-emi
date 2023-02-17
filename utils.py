@@ -10,6 +10,8 @@ def update_time(data, time):
     for thing in data.values():
         if isinstance(thing, dict):
             things = thing.values()
+        elif isinstance(thing, (list, tuple)):
+            things = thing
         else:
             things = (thing, )
             
