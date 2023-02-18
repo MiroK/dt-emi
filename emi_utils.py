@@ -7,7 +7,7 @@ import ulfy
 from xii import *
 
 
-def setup_geometry(n):
+def setup_geometry(n, monolithic=False):
     # Square in square
     mesh = df.UnitSquareMesh(n, n, 'crossed')
 
@@ -27,6 +27,9 @@ def setup_geometry(n):
     df.CompiledSubDomain('near(x[1], 0.25) && ((0.25-TOL < x[0]) && (x[0] < 0.75+TOL))', TOL=1E-10).mark(boundaries, 7)
     df.CompiledSubDomain('near(x[1], 0.75) && ((0.25-TOL < x[0]) && (x[0] < 0.75+TOL))', TOL=1E-10).mark(boundaries, 8)    
 
+    if monolithic:
+        return boundaries
+    
     mesh1, mesh2 = EmbeddedMesh(subdomains, 1), EmbeddedMesh(subdomains, 2)
     boundaries1 = mesh1.translate_markers(boundaries, (1, 2, 3, 4, 5, 6, 7, 8))
     boundaries2 = mesh2.translate_markers(boundaries, (5, 6, 7, 8))    

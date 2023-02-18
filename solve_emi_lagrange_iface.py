@@ -89,7 +89,7 @@ if __name__ == '__main__':
     pdegree = 1
     # --------------
     T_final = 1.0
-    dt = 2E-2
+    dt = 2E-5
     alpha = 1E0 # 1E-3
 
     mms_data = setup_mms(alpha_value=alpha)
