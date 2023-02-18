@@ -189,13 +189,13 @@ if __name__ == '__main__':
 
     print_freq = 0.1*T_final/dt
     # -----------
-    n = 32
+    n = 16
     boundaries = setup_geometry(n)
 
     update_time(mms_data, time=0.)
     
     mesh1, mesh2 = (bdry.mesh() for bdry in boundaries)
-    V1, V2 = (df.FunctionSpace(mesh, 'DG', pdegree) for mesh in (mesh1, mesh2))
+    V1, V2 = (df.FunctionSpace(mesh, 'CG', pdegree) for mesh in (mesh1, mesh2))
     W = [V1, V2]
     
     u_prev = ii_Function([V1, V2])
@@ -246,11 +246,15 @@ if __name__ == '__main__':
         step % print_freq == 0 and print(f'\tt = {t:.2f} |b| = {b.norm("linf"):.4E}, |x| = {x.norm("linf"):.4E}')
     time = mms_data['solution'][0].time
     assert abs(time - mms_data['solution'][1].time) < 1E-13
-    
+    # NOTE: H1 here is questionable for DG but anyways
     error = df.errornorm(mms_data['solution'][0], u_prev[0], 'H1')**2
     error += df.errornorm(mms_data['solution'][1], u_prev[1], 'H1')**2
-    error = df.sqrt(error)
+    error1 = df.sqrt(error)
 
+    error = df.errornorm(mms_data['solution'][0], u_prev[0], 'L2')**2
+    error += df.errornorm(mms_data['solution'][1], u_prev[1], 'L2')**2
+    error0 = df.sqrt(error)
+    
     ndofs = sum(Vi.dim() for Vi in W)
     mesh = boundaries[0].mesh()
-    print(f'time = {time:.2E} h = {mesh.hmin():.2E} dt = {dt:.2E} => |u(T)-uh(T)|_1 = {error:.4E} # = {ndofs}')
+    print(f'time = {time:.2E} h = {mesh.hmin():.2E} dt = {dt:.2E} => |u(T)-uh(T)|_1 = {error1:.4E} |u(T)-uh(T)|_0 = {error0:.4E} # = {ndofs}')
