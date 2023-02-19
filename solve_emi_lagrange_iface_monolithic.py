@@ -1,13 +1,62 @@
 # The main difference here compared to `solve_emi_lagrange_iface` is that
 # we use one DG space
+from fvm_utils import CellCenterDistance
 import dolfin as df
 
 df.set_log_level(50)
+
+
+def get_system_fvm(u_prev, ju, subdomains, boundaries, dt, data):
+    '''Implicit discretization'''
+    V = u_prev.function_space()
+    assert V.ufl_element().degree() == 0
+    
+    u, v = df.TrialFunction(V), df.TestFunction(V)
+
+    dt = df.Constant(dt)
+    gamma = df.Constant(1/dt)
+
+    u_bdry, f_vol, g_robin = data['solution'], data['f'], data['robin']    
+
+    mesh = V.mesh()
+    dx = df.Measure('dx', domain=mesh, subdomain_data=subdomains)
+    dS = df.Measure('dS', domain=mesh, subdomain_data=boundaries)
+    ds = df.Measure('ds', domain=mesh, subdomain_data=boundaries)    
+    
+    iface_tags = tuple(g_robin.keys())
+    dtags = (1, 2, 3, 4)
+
+    pdegree = V.ufl_element().degree()
+    gdim = mesh.geometry().dim()
+    gamma_DG = df.Constant(1)
+
+    nGamma = interface_normal(subdomains)
+    
+    a = (sum(gamma*df.inner(jump(u, nGamma), jump(v, nGamma))*dS(tag) for tag in iface_tags))
+    # Add the DG bits
+    n, hF = df.FacetNormal(mesh), CellCenterDistance(mesh)
+    a += gamma_DG/df.avg(hF)*df.inner(df.jump(u), df.jump(v))*dS(0)
+    # It has Dirichlet bits
+    a += sum(gamma_DG/hF*df.inner(u, v)*ds(tag) for tag in dtags)
+        
+    # rhs
+    L = (df.inner(f_vol[0], v)*dx(1) + df.inner(f_vol[1], v)*dx(2)
+         + sum(gamma*df.inner(ju('+'), jump(v, nGamma))*dS(tag) for tag in iface_tags)
+         + sum(df.inner(g_robin[tag], jump(v, nGamma))*dS(tag) for tag in iface_tags))
+
+    # Dirichlet contrib
+    L += sum(gamma_DG/hF*df.inner(u_bdry[0], v)*ds(tag) for tag in dtags)
+    
+    return a, L, None
 
     
 def get_system(u_prev, ju, subdomains, boundaries, dt, data):
     '''Implicit discretization'''
     V = u_prev.function_space()
+
+    if V.ufl_element().degree() == 0:
+        return get_system_fvm(u_prev, ju, subdomains, boundaries, dt, data)
+    
     u, v = df.TrialFunction(V), df.TestFunction(V)
 
     dt = df.Constant(dt)
@@ -65,7 +114,7 @@ if __name__ == '__main__':
     from utils import update_time
     from xii import *
 
-    pdegree = 1
+    pdegree = 0
     # --------------
     T_final = 1.0
     dt = 1E-1
@@ -138,8 +187,9 @@ if __name__ == '__main__':
     e = patch_interpolate(E, subdomains, {1: mms_data['solution'][0],
                                           2: mms_data['solution'][1]})
     # NOTE: H1 here is questionable
-    error = df.errornorm(e, u_prev, 'H1')
+    error1 = df.errornorm(e, u_prev, 'H1')
+    error0 = df.errornorm(e, u_prev, 'L2')    
              
     ndofs = V.dim()
     mesh = boundaries.mesh()
-    print(f'time = {time:.2E} h = {mesh.hmin():.2E} dt = {dt:.2E} => |u(T)-uh(T)|_1 = {error:.4E} # = {ndofs}')
+    print(f'time = {time:.2E} h = {mesh.hmin():.2E} dt = {dt:.2E} => |u(T)-uh(T)|_1 = {error1:.4E} |u(T)-uh(T)|_0 = {error0:.4E} # = {ndofs}')
