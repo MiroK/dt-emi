@@ -36,13 +36,18 @@ def patch_interpolate(V, subdomains, f):
 
     target = df.Function(V)
     target_ = target.vector().get_local()
+
+    masked = np.zeros(len(target_), dtype=bool)
     
     subdomains = subdomains.array()
     for tag, foo in f.items():
         source_ = df.interpolate(foo, V).vector().get_local()
-        
         dofs = np.concatenate([dm.cell_dofs(c) for c in np.where(subdomains == tag)[0]])
         target_[dofs] = source_[dofs]
+
+        assert not np.any(masked[dofs])
+        
+        masked[dofs] = True
     target.vector().set_local(target_)
 
     return target
@@ -105,7 +110,8 @@ def pcws_constant_project(f, V, fV=None, dM=None, tags=None):
         # FIXME: this should be cached
         solver = df.PETScKrylovSolver('cg', 'hypre_amg')
         solver.parameters['relative_tolerance'] = 1E-30
-        solver.parameters['absolute_tolerance'] = 1E-12        
+        solver.parameters['absolute_tolerance'] = 1E-14
+        # solver.parameters['monitor_convergence'] = True        
         solver.set_operators(A, A)
         
         solver.solve(x, b)
