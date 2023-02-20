@@ -38,10 +38,11 @@ def get_system_fvm(u_prev, ju, subdomains, boundaries, dt, data):
     a += gamma_DG/df.avg(hF)*df.inner(df.jump(u), df.jump(v))*dS(0)
     # It has Dirichlet bits
     a += sum(gamma_DG/hF*df.inner(u, v)*ds(tag) for tag in dtags)
-        
+
+    ju_ = df.avg(jU)
     # rhs
     L = (df.inner(f_vol[0], v)*dx(1) + df.inner(f_vol[1], v)*dx(2)
-         + sum(gamma*df.inner(ju('+'), jump(v, nGamma))*dS(tag) for tag in iface_tags)
+         + sum(gamma*df.inner(ju_, jump(v, nGamma))*dS(tag) for tag in iface_tags)
          + sum(df.inner(g_robin[tag], jump(v, nGamma))*dS(tag) for tag in iface_tags))
 
     # Dirichlet contrib
@@ -91,10 +92,11 @@ def get_system(u_prev, ju, subdomains, boundaries, dt, data):
     a += sum(-df.inner(df.dot(df.grad(u), n), v)*ds(tag)
              -df.inner(df.dot(df.grad(v), n), u)*ds(tag)
              + gamma_DG/hF*df.inner(u, v)*ds(tag) for tag in dtags)
-        
+
+    ju_ = df.avg(ju)    
     # rhs
     L = (df.inner(f_vol[0], v)*dx(1) + df.inner(f_vol[1], v)*dx(2)
-         + sum(gamma*df.inner(ju('+'), jump(v, nGamma))*dS(tag) for tag in iface_tags)
+         + sum(gamma*df.inner(ju_, jump(v, nGamma))*dS(tag) for tag in iface_tags)
          + sum(df.inner(g_robin[tag], jump(v, nGamma))*dS(tag) for tag in iface_tags))
 
     # Dirichlet contrib
@@ -114,7 +116,7 @@ if __name__ == '__main__':
     from utils import update_time
     from xii import *
 
-    pdegree = 0
+    pdegree = 1
     # --------------
     T_final = 1.0
     dt = 1E-1
@@ -124,7 +126,7 @@ if __name__ == '__main__':
 
     print_freq = 0.1*T_final/dt
     # -----------
-    n = 64
+    n = 32
     subdomains, boundaries = setup_geometry(n)
     nGamma = interface_normal(subdomains)
 
@@ -183,13 +185,12 @@ if __name__ == '__main__':
     time = mms_data['solution'][0].time
     assert abs(time - mms_data['solution'][1].time) < 1E-13
 
-    E = df.FunctionSpace(mesh, 'DG', V.ufl_element().degree()+1)
-    e = patch_interpolate(E, subdomains, {1: mms_data['solution'][0],
-                                          2: mms_data['solution'][1]})
-    # NOTE: H1 here is questionable
-    error1 = df.errornorm(e, u_prev, 'H1')
-    error0 = df.errornorm(e, u_prev, 'L2')    
-             
+    dx = df.Measure('dx', subdomain_data=subdomains, metadata={'quadrature_degree': 5})
+    error0 = df.sqrt(
+        df.assemble((u_prev - mms_data['solution'][0])**2*dx(1) + (u_prev - mms_data['solution'][1])**2*dx(2))
+    )
+    error1 = -1
+                 
     ndofs = V.dim()
     mesh = boundaries.mesh()
     print(f'time = {time:.2E} h = {mesh.hmin():.2E} dt = {dt:.2E} => |u(T)-uh(T)|_1 = {error1:.4E} |u(T)-uh(T)|_0 = {error0:.4E} # = {ndofs}')

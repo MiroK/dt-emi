@@ -10,4 +10,4 @@
 - [x] `solve_emi_lagrange*.py` solves the time-dependent EMI problem (CG or DG or DG0)
 ----------------------------------------------------------------------
 - [ ] drop assumption of unit diffusion parameters
-- [ ] stationary case (for error estimates in $L^2$)
+- [ ] stationary case (for error estimates in $L^2$; it's only monolithic where the rates are off?)
